@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Programa para analizar y diseñar puentes de viga metálica</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
+        .container { background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 900px; margin: auto; }
+        h1, h2 { text-align: center; color: #333; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input[type="text"], .form-group input[type="number"], .form-group select {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .section-inputs { border: 1px solid #eee; padding: 15px; margin-top: 20px; border-radius: 5px; background-color: #fafafa; }
+        .section-inputs h3 { margin-top: 0; color: #555; }
+        .submit-btn {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: block;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .submit-btn:hover { background-color: #0056b3; }
+        .error { color: red; text-align: center; margin-bottom: 20px; }
+        .half-width { width: 48%; float: left; margin-right: 4%; }
+        .half-width:last-child { margin-right: 0; }
+        .clear { clear: both; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PROGRAMA PARA ANALIZAR Y DISEÑAR PUENTES DE VIGA METÁLICA</h1>
+        <h2>C/S LOSA COLABORANTE</h2>
+        <p style="text-align: center;">Colaboradores: Pedro Stolzenbach & Luis Casanova</p>
+
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST">
+            <div class="form-group">
+                <label for="NNP">NOMBRE DEL PUENTE:</label>
+                <input type="text" id="NNP" name="NNP" required>
+            </div>
+            <div class="form-group">
+                <label for="UBIC">UBICACION:</label>
+                <input type="text" id="UBIC" name="UBIC" required>
+            </div>
+            <div class="form-group">
+                <label for="FECHA">FECHA:</label>
+                <input type="text" id="FECHA" name="FECHA" required>
+            </div>
+            <div class="form-group half-width">
+                <label for="RC">RESISTENCIA COMPRESION CUBICA HORMIGON 28 DIAS Fc(Kg/cm2):</label>
+                <input type="number" step="any" id="RC" name="RC" required>
+            </div>
+            <div class="form-group half-width">
+                <label for="FY">TENSION DE FLUENCIA ACERO Fy(Kg/cm2):</label>
+                <input type="number" step="any" id="FY" name="FY" required>
+            </div>
+            <div class="clear"></div>
+            <div class="form-group half-width">
+                <label for="L">L (m):</label>
+                <input type="number" step="any" id="L" name="L" required>
+            </div>
+            <div class="form-group half-width">
+                <label for="CE">COEFICIENTE CAMION DISENO CE:</label>
+                <input type="number" step="any" id="CE" name="CE" required>
+            </div>
+            <div class="clear"></div>
+            <div class="form-group half-width">
+                <label for="CD">COEFICIENTE DISTRIBUCION CD:</label>
+                <input type="number" step="any" id="CD" name="CD" required>
+            </div>
+            <div class="form-group half-width">
+                <label for="N">N (Ea/Eh):</label>
+                <input type="number" step="any" id="N" name="N" required>
+            </div>
+            <div class="clear"></div>
+            <div class="form-group half-width">
+                <label for="Q1">CARGAS DISTRIBUIDAS (Ton/M) Q1:</label>
+                <input type="number" step="any" id="Q1" name="Q1" required>
+            </div>
+            <div class="form-group half-width">
+                <label for="Q2">Q2:</label>
+                <input type="number" step="any" id="Q2" name="Q2" required>
+            </div>
+            <div class="clear"></div>
+            <div class="form-group half-width">
+                <label for="NS">Nº DE SECCIONES A DISEÑAR:</label>
+                <select id="NS" name="NS" onchange="generateSectionInputs()" required>
+                    {% for i in NS_range %}
+                    <option value="{{ i }}">{{ i }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group half-width">
+                <label for="K">CON LOSA COLABORANTE =1, SIN LOSA COLABORANTE =2:</label>
+                <select id="K" name="K" onchange="toggleJInput()" required>
+                    <option value="1">1 (Con Losa Colaborante)</option>
+                    <option value="2">2 (Sin Losa Colaborante)</option>
+                </select>
+            </div>
+            <div class="clear"></div>
+            <div class="form-group" id="J_input_group">
+                <label for="J">CON ALZAPRIMA =1, SIN ALZAPRIMA =2:</label>
+                <select id="J" name="J">
+                    <option value="1">1 (Con Alzaprima)</option>
+                    <option value="2">2 (Sin Alzaprima)</option>
+                </select>
+            </div>
+
+            <div id="section_inputs_container">
+                </div>
+
+            <button type="submit" class="submit-btn">Calcular</button>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            generateSectionInputs();
+            toggleJInput();
+        });
+
+        function generateSectionInputs() {
+            const ns = document.getElementById('NS').value;
+            const container = document.getElementById('section_inputs_container');
+            container.innerHTML = ''; // Clear previous inputs
+            const K_val = document.getElementById('K').value;
+
+            for (let i = 1; i <= ns; i++) {
+                let sectionDiv = document.createElement('div');
+                sectionDiv.className = 'section-inputs';
+                sectionDiv.innerHTML = `
+                    <h3>--- GEOMETRÍA DE LA SECCIÓN X(${i}) ---</h3>
+                    <div class="form-group half-width">
+                        <label for="X_${i}">Distancia desde apoyo a seccion X(${i}) (m):</label>
+                        <input type="number" step="any" id="X_${i}" name="X_${i}" required>
+                    </div>
+                    <div class="form-group half-width">
+                        <label for="D_${i}">Separación arriostramientos D(${i}) (cm):</label>
+                        <input type="number" step="any" id="D_${i}" name="D_${i}" required>
+                    </div>
+                    <div class="clear"></div>
+                    <div class="form-group half-width">
+                        <label for="E1_${i}">E1 (cm):</label>
+                        <input type="number" step="any" id="E1_${i}" name="E1_${i}" required>
+                    </div>
+                    <div class="form-group half-width">
+                        <label for="B1_${i}">B1 (cm):</label>
+                        <input type="number" step="any" id="B1_${i}" name="B1_${i}" required>
+                    </div>
+                    <div class="clear"></div>
+                    <div class="form-group half-width">
+                        <label for="E2_${i}">E2 (cm):</label>
+                        <input type="number" step="any" id="E2_${i}" name="E2_${i}" required>
+                    </div>
+                    <div class="form-group half-width">
+                        <label for="B2_${i}">B2 (cm):</label>
+                        <input type="number" step="any" id="B2_${i}" name="B2_${i}" required>
+                    </div>
+                    <div class="clear"></div>
+                    <div class="form-group half-width">
+                        <label for="E3_${i}">E3 (cm):</label>
+                        <input type="number" step="any" id="E3_${i}" name="E3_${i}" required>
+                    </div>
+                    <div class="form-group half-width">
+                        <label for="B3_${i}">B3 (cm):</label>
+                        <input type="number" step="any" id="B3_${i}" name="B3_${i}" required>
+                    </div>
+                    <div class="clear"></div>
+                    <div class="form-group half-width">
+                        <label for="E4_${i}">E4 (cm):</label>
+                        <input type="number" step="any" id="E4_${i}" name="E4_${i}" required>
+                    </div>
+                    <div class="form-group half-width">
+                        <label for="B4_${i}">B4 (cm):</label>
+                        <input type="number" step="any" id="B4_${i}" name="B4_${i}" required>
+                    </div>
+                    <div class="clear"></div>
+                    <div class="form-group half-width">
+                        <label for="E0_${i}">E0 (cm):</label>
+                        <input type="number" step="any" id="E0_${i}" name="E0_${i}" required>
+                    </div>
+                    <div class="form-group half-width">
+                        <label for="H0_${i}">H0 (cm):</label>
+                        <input type="number" step="any" id="H0_${i}" name="H0_${i}" required>
+                    </div>
+                    <div class="clear"></div>
+                `;
+                if (K_val === '1') { // Only show these if K is 1 (Con Losa Colaborante)
+                    let losaDiv = document.createElement('div');
+                    losaDiv.className = 'form-group half-width';
+                    losaDiv.innerHTML = `
+                        <label for="EL_${i}">Espesor losa EL (cm):</label>
+                        <input type="number" step="any" id="EL_${i}" name="EL_${i}" required>
+                    `;
+                    sectionDiv.appendChild(losaDiv);
+
+                    let blDiv = document.createElement('div');
+                    blDiv.className = 'form-group half-width';
+                    blDiv.innerHTML = `
+                        <label for="BL_${i}">Ancho colaborante losa BL (cm):</label>
+                        <input type="number" step="any" id="BL_${i}" name="BL_${i}" required>
+                    `;
+                    sectionDiv.appendChild(blDiv);
+                    let clearDiv = document.createElement('div');
+                    clearDiv.className = 'clear';
+                    sectionDiv.appendChild(clearDiv);
+                }
+                container.appendChild(sectionDiv);
+            }
+        }
+
+        function toggleJInput() {
+            const kValue = document.getElementById('K').value;
+            const jInputGroup = document.getElementById('J_input_group');
+            if (kValue === '1') {
+                jInputGroup.style.display = 'block';
+            } else {
+                jInputGroup.style.display = 'none';
+            }
+            generateSectionInputs(); // Regenerate section inputs when K changes
+        }
+    </script>
+</body>
+</html>
